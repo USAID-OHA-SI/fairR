@@ -37,3 +37,62 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+#nothing from these folders
+AI/*
+GIS/*
+Images/*
+Graphics/*
+Dataout/*
+*.csv
+*.svg
+Scripts/16_EA_Spend_type_circles.R
+
+#no data
+*.csv
+*.txt
+*.rds
+*.xlsx
+*.xls
+*.zip
+*.png
+*.twbx
+*.pptx
+
+#nothing from these folders
+AI/*
+GIS/*
+Images/*
+Graphics/*
+#no data
+*.csv
+*.txt
+*.rds
+*.xlsx
+*.xls
+*.zip
+*.png
+*.twbx
+*.pptx
+
+#nothing from these folders
+AI/*
+GIS/*
+Images/*
+Graphics/*
+#no data
+*.csv
+*.txt
+*.rds
+*.xlsx
+*.xls
+*.zip
+*.png
+*.twbx
+*.pptx
+
+#nothing from these folders
+AI/*
+GIS/*
+Images/*
+Graphics/*
