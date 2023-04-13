@@ -7,23 +7,11 @@
 # DEPENDENCIES ------------------------------------------------------------
 
 library(tidyverse)
-library(glitr)
-library(glamr)
-library(gophr)
 library(gagglr)
-library(extrafont)
-library(scales)
-library(tidytext)
-library(patchwork)
-library(ggtext)
-library(glue)
-library(gophr)
-library(janitor)
-library(lubridate)
-library(gt)
 library(mindthegap)
-library(summarytools)
-
+library(glue)
+library(ggtext)
+library(extrafont)
 
 # GLOBAL VARIABLES --------------------------------------------------------
 
@@ -37,11 +25,9 @@ df <- si_path() %>%
   read_psd()  
 get_metadata()
 
-#pull unaids numbers
+#pull unaids estimates
 df_est <- pull_unaids(orginal_unaids = TRUE, data_type = "HIV Estimates", 
                       pepfar_only = TRUE)
-df_tt <- pull_unaids(orginal_unaids = TRUE, data_type = "HIV Test & Treat", 
-                     pepfar_only = TRUE)
 
 # MUNGE -------------------------------------------------------------------
 
@@ -55,7 +41,7 @@ df_tx <- df %>%
   group_by(country, indicator, sex) %>% 
   summarise(across(cumulative, sum, na.rm = TRUE)) %>%
   mutate(freq = round((cumulative / sum(cumulative)*100),2)) %>% 
-  mutate(sex_color = ifelse(sex == "Female", denim, old_rose)) %>% 
+  mutate(sex_color = ifelse(sex == "Female", moody_blue, genoa)) %>% 
   ungroup()
 
 # get UNAIDS PLHIV estimates by sex and extend to 6 entries
@@ -70,27 +56,31 @@ df_plhiv <- df_est %>%
   ungroup() 
 
 # Duplicate df_plhiv to match df_tx
-# df_plhiv <- df_plhiv %>% 
-#   rbind(df_plhiv) %>% 
-#   rbind(df_plhiv)
+df_plhiv <- df_plhiv %>%
+  rbind(df_plhiv) %>%
+  rbind(df_plhiv)
 
 # add in reference column for geom_segment
 df_tx <- df_tx %>% 
   mutate(plhiv_freq = rev(df_plhiv$freq))
 
 # VISUALIZE-----------------------------------------------------
-
 #visualize dumbbell plot and line segments
 df_viz <- ggplot(df_tx) + 
-  geom_vline(xintercept = unlist(df_plhiv$freq), linetype = "dotted") +
+  geom_vline(xintercept = df_plhiv$freq[1], linetype = "dotted", color = genoa) +
+  geom_vline(xintercept = df_plhiv$freq[2], linetype = "dotted", color = moody_blue) +
   geom_point(aes(x=freq, y=indicator), size = 3, color = df_tx$sex_color, show.legend = TRUE) +
-  geom_text(aes(df_tx$freq,df_tx$indicator), label = round(df_tx$freq), nudge_y = .2) +
+  geom_text(aes(df_tx$freq,df_tx$indicator), label = round(df_tx$freq), size = 4, color = trolley_grey, nudge_y = .2, family = "Source Sans Pro") +
   geom_segment(x = df_tx$plhiv_freq, xend = df_tx$freq, y = df_tx$indicator, yend = df_tx$indicator) +
-  labs(title = glue("HTS_TST_POS DISPLAYS THE GREATEST DISPARITY IN TREATMENT BY GENDER"),
-       subtitle = glue("Treatment by  <span style = 'color: #2057a7;'>Female</span> and <span style = 'color: #c43d4d;'>Male</span> in {df_tx$country[1]} <br>
-                       Dotted line represents UNAIDS PLHIV estimates for Female and Male"),
-       caption = glue("Source: MER {metadata$curr_fy_lab}")) +
+  labs(title = glue("HTS_TST_POS DISPLAYS THE GREATEST DISPARITY BY SEX"),
+       subtitle = glue("Indicator results and UNAIDS PLHIV estimates by  <span style = 'color: #8980cb;'>
+                        Female</span> and <span style = 'color: #287c6f;'>Male</span>
+                        in {df_tx$country[1]}"),
+       caption = glue("Source: MER {metadata$curr_fy_lab}"),
+       x = "% Share of PLHIV by Sex",
+       y = "") +
   si_style_xgrid() +
+  scale_x_continuous(breaks = seq(10, 90, by = 10)) +
   theme(plot.subtitle = element_markdown())  
 
 plot(df_viz)
