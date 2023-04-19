@@ -1,0 +1,60 @@
+---
+title: "Mock Data Viz Markdown file"
+author: "Prasann Ranade"
+date: "04/19/2023"
+output:
+  word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+  library(tidyverse)
+  library(glitr)
+  library(glamr)
+  library(gophr)
+  library(extrafont)
+  library(scales)
+  library(tidytext)
+  library(patchwork)
+  library(ggtext)
+  library(glue)
+  library(janitor)
+  library(lubridate)
+  library(googlesheets4)
+```
+
+# Test Markdown Document to display visual alongside script 
+
+## Read in data
+
+``` {r}
+df <- si_path() %>% 
+  return_latest("FY48-49") %>% 
+  read_csv()  
+get_metadata()
+```
+## Filter data
+
+``` {r}
+df_tx <- df %>%
+  filter(planet == "Saturn",
+         disaggregate == "Total Numerator") %>% 
+  group_by(planet, region, indicator, fiscal_year) %>% 
+  summarise(across(c("qtr1","qtr2","qtr3","qtr4"), sum, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+## Visualize data
+
+```{r}
+ggplot(df_tx) +
+  geom_col(data = df_tx, aes(x = indicator, y = qtr1, fill = indicator)) +
+  geom_col(data = df_tx, aes(x = indicator, y = qtr2, fill = indicator)) +
+  si_style_xgrid()
+```
+
+This is a description of the plot as a sample write-up in markdown.
+
+
+
