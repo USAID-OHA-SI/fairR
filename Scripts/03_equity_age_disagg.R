@@ -1,5 +1,5 @@
 ## PROJECT: COP_UGA
-## AUTHOR:  K. Srikanth | USAID
+## AUTHOR:  N. Petrovic | USAID
 ## PURPOSE: DSD Analysis - descriptive analysis viz
 ## LICENSE: MIT
 ## DATE:    2022-02-23
@@ -21,159 +21,106 @@ library(extrafont)
 library(patchwork)
 library(waffle)
 
+# Reference ID to be used for searching GitHub
+ref_id <- "c125e3f4"
+
+
 #IMPORT ------------------------------------------------------------------
 
-#Run tidying script and save to /Dataout folder
+#table of age/sex disaggs
+df_disaggs <- tibble::tribble(
+  ~indicator,      ~standardizeddisaggregate,
+  "HTS_TST_POS",      "Modality/Age/Sex/Result",
+  "TX_CURR",            "Age/Sex/HIVStatus",
+  "TX_NEW",            "Age/Sex/HIVStatus",
+  "TX_PVLS", "Age/Sex/Indication/HIVStatus",
+  "PrEP_NEW",                      "Age/Sex")
 
-df_clean <- read_csv("Dataout/20220223-DSD-preference-clean.csv")
+# Load NATSUBNAT data set & get metadata
+load_secrets()
+merdata <- file.path(glamr::si_path("path_msd"))
+file_path <- return_latest(folderpath = merdata,
+                           pattern = "NAT_SUBNAT_FY21-23")
+df_msd_natsubnat <- read_psd(file_path)
+msd_source <- source_info(file_path)
+get_metadata()
+metadata_natsubnat<-metadata
+
+#Load MER & get metadata
+file_path <- return_latest(folderpath = merdata,
+                           pattern = "OU_IM_FY21-23")
+df_msd <- read_psd(file_path) 
+msd_source <- source_info(file_path)
+get_metadata() 
+  
+  
+############### MUNGE
+
+ind_sel<-"TX_CURR"
+
+df_age_natsubnat <- df_msd_natsubnat %>% filter(country=="Guatemala", indicator=="PLHIV", fiscal_year=="2022") %>%
+  filter(is.na(age_2019)==FALSE) %>%
+  group_by(age_2019) %>%
+  summarise(across(targets, sum),.groups="drop") 
+
+df_msd <- df_msd %>%
+  semi_join(df_disaggs, by = c("indicator", "standardizeddisaggregate"))   
+
+df_msd <- df_msd %>% filter(country=="Guatemala", indicator==ind_sel, fiscal_year=="2022") %>%
+  group_by(age_2019) %>%
+  summarise(across(cumulative, sum, na.rm=TRUE),.groups="drop") 
+
+df_age <- df_msd %>%
+  inner_join(df_age_natsubnat, by = c("age_2019")) %>%
+  rename(mer_result=cumulative, unaids_est=targets) %>%
+  mutate(mer_result=mer_result/sum(mer_result), unaids_est=unaids_est/sum(unaids_est)) %>%
+  mutate(diff=mer_result-unaids_est) %>%
+  mutate(path_color=case_when(abs(diff)>0.05 ~ trolley_grey,
+                              TRUE ~ trolley_grey_light)) %>%
+  mutate(label_left=case_when(age_2019 %in% c("<01","01-04","05-09")~NA,
+                              diff<0 ~ mer_result, 
+                              diff>0 ~ unaids_est)) %>%
+  mutate(label_right=case_when(age_2019 %in% c("<01","01-04","05-09")~NA,
+                              diff<0 ~ unaids_est, 
+                              diff>0 ~ mer_result)) %>%
+  pivot_longer(cols=c(mer_result,unaids_est), names_to="type") 
+  
+ 
 
 #DESCRIPTIVE ANALYTICS ---------------------------------------------------
 
-#  What is the frequency of survey participants ? -------------
-
-df_clean %>% count(gender, age_group) %>%
-  drop_na() %>% 
-  #filter(!is.na(gender) & !is.na(age_group)) %>% 
-  mutate(fill_color = ifelse(gender == "Male", genoa, moody_blue)) %>% 
-  ggplot(aes(x = age_group, y = ifelse(gender == "Male", -n, n), fill = fill_color), na.rm = TRUE) +
-  geom_bar(stat = "identity") +
-  geom_text(aes(label = n, hjust = ifelse(gender == "Male", 1.2, -.4)),
-            family = "Source Sans Pro", size = 4, color = "#505050") +
-  coord_flip() + 
-  scale_fill_identity() +
-  si_style_nolines() +
-  labs(x = NULL, y = NULL,
-       title = "The participant cohort (n = 6,376) comprises of more <span style = 'color:#8980cb'>women</span> than  <span style = 'color:#287c6f'>men</span> and mostly patients over the age of 50",
-       subtitle = "Uganda COP22 Patient Preference Analysis | USAID",
-       caption = "Source: DSD Patient Reference Export, 16 Feb 2022") + 
-  theme(legend.position = "none",
-        panel.grid.major.y = element_blank(),
-        axis.text.x = element_blank(),
-        plot.title = element_markdown()
-  )
-
-si_save("COP22_UGA_survey-participants-age-sex.png", path = "Images")
-
-#  IIT by age/sex ---------
-
-df_iit_prct <- df_clean %>% 
-  count(gender, age_group, missed_appt) %>% drop_na() %>% 
-  pivot_wider(names_from = missed_appt, values_from = n) %>% 
-  mutate(total = No + Yes,
-         IIT = Yes / total,
-         fill_color = ifelse(gender == "Male", genoa, moody_blue))
-
-df_iit_prct %>% 
-  #drop_na() %>% 
-  summarise(Yes = sum(Yes, na.rm = TRUE), .groups = "drop") 
-
-df_iit_prct %>% 
-  ggplot(aes(IIT, age_group)) +
-  geom_path(color = "gray50") +
-  geom_point(aes(size = total), fill = "white") +
-  geom_point(aes(size = total, fill = gender, color = "white"), shape = 21) +
-  geom_text(aes(label = percent(IIT, 1)), family = "Source Sans Pro", 
-            color = trolley_grey, hjust = -0.8, na.rm = TRUE) +
-  scale_fill_manual(values = c("Male" = genoa, "Female" = moody_blue)) +
+df_age %>% 
+  ggplot(aes(value, age_2019)) +
+  geom_path(aes(color = path_color),linewidth=1) +
+  geom_point(aes(fill = type, color = "white"), shape = 21, size=5, show.legend = FALSE ) +
+  geom_text(aes(x=label_left, label = percent(label_left,1)), family = "Source Sans Pro", 
+            color = trolley_grey, hjust = 1.5, na.rm = TRUE) +
+  geom_text(aes(x=label_right, label = percent(label_right,1)), family = "Source Sans Pro", 
+            color = trolley_grey, hjust = -0.5, na.rm = TRUE) +
+  scale_fill_manual(values = c("mer_result" = burnt_sienna, "unaids_est" = scooter)) +
   scale_color_identity() +
-  scale_x_continuous(label = percent) +
-  scale_size_continuous(range = c(3, 10)) +
   #expand_limits(x = 1) +
   si_style_xgrid() +
-  labs(y = NULL,
-       title = "Share of patients (n = 6215) with missed appointments in the last 12 months, across age and sex",
-       subtitle = "Uganda COP22 DSD Analysis | USAID",
-       caption = "Estimated IIT Proxy = Missed appointment in the last 12 months
-           Source: DSD Patient Reference Export, 16 Feb 2022"
-  ) +
+  labs(title = glue("YOUTH UNDERREPRESENTED IN TX_CURR, OLDER AGE BANDS OVERREPRESENTED"),
+       subtitle = glue("Age breakdown for <span style = 'color: #e07653; font-weight: bold'>
+                        {ind_sel} </span> compared to  <span style = 'color: #1e87a5; font-weight: bold'> total PLHIV</span>
+                        in Guatemala"),
+       caption = glue("Sources: {msd_source} and NAT_SUBNAT| USAID/OHA/SIEI | Ref ID: {ref_id}"),
+       x = "% Share by age group",
+       y = "") +
+  scale_x_continuous(breaks = seq(0, 1, by = .1), labels=label_percent()) +
   theme(
     panel.grid.major.y = element_blank(),
-    axis.text.x = element_blank(),
-    plot.title = element_markdown()
+    #axis.text.x = element_blank(),
+    plot.subtitle = element_markdown()
   )
 
-si_save("COP22_UGA_itt-share1.svg", path = "Graphics")
+si_save("Images/Equity_Indicators_vs_PLHIV_age_bands.png", path = "Images")
 
 
-#  VLC by age/sex? -------------
+#df_msd_natsubnat %>% filter(indicator=="PLHIV", fiscal_year=="2022") %>%
+#filter(is.na(sex)==FALSE) %>% 
+#group_by(sex) %>% 
+#summarise(across(targets, sum),.groups="drop") %>% 
+#mutate(freq = round((targets / sum(targets)),3))
 
-df_vlc <- df_clean %>% 
-  count(gender, age_group, updated_vl) %>% drop_na() %>% 
-  pivot_wider(names_from = updated_vl, values_from = n) %>% 
-  mutate(total = No + Yes,
-         VLC = Yes / total,
-         fill_color = ifelse(gender == "Male", genoa, moody_blue))
-
-df_vlc %>% 
-  #drop_na() %>% 
-  summarise(Yes = sum(Yes, na.rm = TRUE), .groups = "drop") 
-
-df_vlc %>% 
-  ggplot(aes(VLC, age_group)) +
-  geom_path(color = "gray50") +
-  geom_point(aes(size = total), fill = "white") +
-  geom_point(aes(size = total, fill = gender, color = "white"), shape = 21) +
-  geom_text(aes(label = percent(VLC, 1)), family = "Source Sans Pro", 
-            color = trolley_grey, hjust = -0.8, na.rm = TRUE) +
-  scale_fill_manual(values = c("Male" = genoa, "Female" = moody_blue)) +
-  scale_color_identity() +
-  scale_x_continuous(label = percent) +
-  scale_size_continuous(range = c(3, 10)) +
-  #expand_limits(x = 1) +
-  si_style_xgrid() +
-  labs(
-    title = "Share of patients (n=6246) with updated viral loads, across age and sex",
-    subtitle = "Uganda COP22 Patient Preference Analysis | USAID",
-    caption = "Estimated IIT Proxy = Missed appointment in the last 12 months
-           Source: DSD Patient Reference Export, 16 Feb 2022"
-  ) +
-  theme(
-    panel.grid.major.y = element_blank(),
-    axis.text.x = element_blank(),
-    plot.title = element_markdown()
-  )
-
-si_save("COP22_UGA_vlc-share1.svg", path = "Graphics")
-
-
-#  VLS by age/sex?
-
-#removed missing values
-
-df_vls <- df_clean %>% 
-  count(gender, age_group, vls) %>% drop_na() %>% 
-  pivot_wider(names_from = vls, values_from = n) %>% 
-  mutate(total = No + Yes,
-         VLS = Yes / total,
-         fill_color = ifelse(gender == "Male", genoa, moody_blue))
-
-df_vls %>% 
-  #drop_na() %>% 
-  summarise(Yes = sum(Yes, na.rm = TRUE), .groups = "drop") 
-
-df_vls %>%
-  ggplot(aes(VLS, age_group)) +
-  geom_path(color = "gray50") +
-  geom_point(aes(size = total), fill = "white") +
-  geom_point(aes(size = total, fill = gender, color = "white"), shape = 21) +
-  geom_text(aes(label = percent(VLS, 1)), family = "Source Sans Pro",
-            color = trolley_grey, hjust = -0.8, na.rm = TRUE) +
-  scale_fill_manual(values = c("Male" = genoa, "Female" = moody_blue)) +
-  scale_color_identity() +
-  scale_x_continuous(label = percent) +
-  scale_size_continuous(range = c(3, 10)) +
-  #expand_limits(x = 1) +
-  si_style_xgrid() +
-  labs(y = NULL,
-       title = "Share of participants (n = 6112) with suppressed viral loads, across age and sex",
-       subtitle = "Uganda COP22 Patient Preference Analysis | USAID",
-       caption = "Estimated VLS Proxy = Missed appointment in the last 12 months
-           Source: DSD Patient Reference Export, 16 Feb 2022"
-  ) +
-  theme(
-    panel.grid.major.y = element_blank(),
-    axis.text.x = element_blank(),
-    plot.title = element_markdown()
-  )
-
-si_save("COP22_UGA_vls-share1.svg", path = "Graphics")
