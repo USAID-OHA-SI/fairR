@@ -19,8 +19,7 @@
   library(mindthegap)
   library(ggtext)
 
-  ## HTST POS TXNEW - prevalence OR incidence 
-  ## RTT TXNEW TXCURR VLS - prevalence
+  ## QC'd with Panorama 6/23 using sex/age disagg in single OU table
 
   #table of age/sex disaggs
   df_disaggs <- tibble::tribble(
@@ -69,16 +68,21 @@
    
      unaids_female<-df_plhiv$freq_UNAIDS[df_plhiv$sex=="Female"]
      unaids_male<-df_plhiv$freq_UNAIDS[df_plhiv$sex=="Male"]
-   
+
+ ## Parameters
+     cntry_sel<-"Guatemala"
+     fisc_yr_sel<-2023
+     
+        
  ### Filter by indicatorlist
-  df_msd <- df_msd %>%
+  df_msd <- df_msd %>% clean_indicator() %>%
   semi_join(df_disaggs, by = c("indicator", "standardizeddisaggregate"))  
    
   #get USAID indicator numbers by sex
     df_tx <- df_msd %>%
-    filter(country == "Guatemala",
+    filter(country == cntry_sel,
            funding_agency == "USAID",
-           fiscal_year == 2022) %>% 
+           fiscal_year == fisc_yr_sel) %>% 
     group_by(country, indicator, sex) %>% 
     summarise(across(cumulative, sum, na.rm = TRUE),.groups="drop") %>%
     group_by(country, indicator) %>% 
@@ -112,7 +116,7 @@
       scale_color_manual(values = c("Female" = moody_blue, "Male" = genoa),
                                                              labels = function(x) str_to_upper(x)) + 
       labs(title = glue("GREATER PROPORTION OF FEMALES LIVE WITH HIV THAN FOUND IN INDICATOR COHORTS"),
-           subtitle = glue("Indicator results and UNAIDS PLHIV estimates for  <span style = 'color: #8980cb;'>
+           subtitle = glue("FY{str_sub(fisc_yr_sel, start = 3, end=4)} indicator results and UNAIDS PLHIV estimates for <span style = 'color: #8980cb;'>
                         Females</span> and <span style = 'color: #287c6f;'>Males</span>
                         in {df_tx$country[1]}"),
            caption = glue("Sources: {msd_source}, UNAIDS Estimates 2021 | USAID/OHA/SIEI | Ref ID: {ref_id}"),

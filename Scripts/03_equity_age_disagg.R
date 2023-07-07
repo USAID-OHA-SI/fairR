@@ -24,6 +24,8 @@ library(waffle)
 # Reference ID to be used for searching GitHub
 ref_id <- "c125e3f4"
 
+## QC'ed with PANO for TX_CURR & TX_NEW
+
 
 #IMPORT ------------------------------------------------------------------
 
@@ -49,24 +51,34 @@ metadata_natsubnat<-metadata
 #Load MER & get metadata
 file_path <- return_latest(folderpath = merdata,
                            pattern = "OU_IM_FY21-23")
-df_msd <- read_psd(file_path) 
+df_msd_all <- read_psd(file_path) 
 msd_source <- source_info(file_path)
 get_metadata() 
+
+
+#### Select Filters
+
+#ind_sel<-"TX_CURR"
+#ind_sel<-"TX_NEW"
+#ind_sel<- "HTS_TST_POS" 
+#ind_sel<-"TX_PVLS"
+ind_sel<-"PrEP_NEW" 
+cntry_sel<-"Guatemala"
+fisc_yr_sel<-2023
+fund_ag_sel<-"USAID"
   
   
 ############### MUNGE
 
-ind_sel<-"TX_CURR"
-
-df_age_natsubnat <- df_msd_natsubnat %>% filter(country=="Guatemala", indicator=="PLHIV", fiscal_year=="2022") %>%
+df_age_natsubnat <- df_msd_natsubnat %>% filter(country==cntry_sel, indicator=="PLHIV", fiscal_year==fisc_yr_sel) %>%
   filter(is.na(age_2019)==FALSE) %>%
   group_by(age_2019) %>%
   summarise(across(targets, sum),.groups="drop") 
 
-df_msd <- df_msd %>%
+df_msd <- df_msd_all %>%
   semi_join(df_disaggs, by = c("indicator", "standardizeddisaggregate"))   
 
-df_msd <- df_msd %>% filter(country=="Guatemala", indicator==ind_sel, fiscal_year=="2022") %>%
+df_msd <- df_msd %>% filter(country==cntry_sel, indicator==ind_sel, fiscal_year==fisc_yr_sel, funding_agency==fund_ag_sel) %>%
   group_by(age_2019) %>%
   summarise(across(cumulative, sum, na.rm=TRUE),.groups="drop") 
 
@@ -101,21 +113,20 @@ df_age %>%
   scale_color_identity() +
   #expand_limits(x = 1) +
   si_style_xgrid() +
-  labs(title = glue("YOUTH UNDERREPRESENTED IN TX_CURR, OLDER AGE BANDS OVERREPRESENTED"),
-       subtitle = glue("Age breakdown for <span style = 'color: #e07653; font-weight: bold'>
-                        {ind_sel} </span> compared to  <span style = 'color: #1e87a5; font-weight: bold'> total PLHIV</span>
-                        in Guatemala"),
+  labs(title = glue("{toupper(fund_ag_sel)} FY{str_sub(fisc_yr_sel, start = 3, end=4)} AGE BREAKDOWN FOR <span style = 'color: #e07653; font-weight: bold'>
+                        {ind_sel} </span> COMPARED TO <span style = 'color: #1e87a5; font-weight: bold'> TOTAL PLHIV</span>
+                        IN {toupper(cntry_sel)}"),
        caption = glue("Sources: {msd_source} and NAT_SUBNAT| USAID/OHA/SIEI | Ref ID: {ref_id}"),
-       x = "% Share by age group",
+       x = "Percent share by age group",
        y = "") +
   scale_x_continuous(breaks = seq(0, 1, by = .1), labels=label_percent()) +
   theme(
     panel.grid.major.y = element_blank(),
     #axis.text.x = element_blank(),
-    plot.subtitle = element_markdown()
+    plot.title = element_markdown()
   )
 
-si_save("Images/Equity_Indicators_vs_PLHIV_age_bands.png", path = "Images")
+si_save(glue("Equity_Indicators_vs_PLHIV_age_bands_{cntry_sel}_{fisc_yr_sel}_{ind_sel}.png"), path = "Images")
 
 
 #df_msd_natsubnat %>% filter(indicator=="PLHIV", fiscal_year=="2022") %>%
