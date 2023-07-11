@@ -64,6 +64,7 @@ AI/*
 GIS/*
 Images/*
 Graphics/*
+Archive/*
 #no data
 *.csv
 *.txt
@@ -80,6 +81,7 @@ AI/*
 GIS/*
 Images/*
 Graphics/*
+Archive/*
 #no data
 *.csv
 *.txt
@@ -96,3 +98,4 @@ AI/*
 GIS/*
 Images/*
 Graphics/*
+Archive/*
