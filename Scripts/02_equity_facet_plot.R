@@ -77,7 +77,7 @@ df_plhiv <- df_est %>%
 
 # plot only one indicator at a time
 df_facet <- df_prep %>% 
-  filter(indicator == "TX_NEW") 
+  filter(indicator == "TX_CURR") 
 
 # VISUALIZE --------------------------------------------------------------------
 
@@ -93,7 +93,7 @@ df_viz <- df_facet %>%
   scale_color_manual(values = c("Female" = moody_blue, "Male" = genoa, "KP"=burnt_sienna),
                      labels = function(x) str_to_upper(x)) +
   facet_wrap(facet_ind ~ ., scales = "fixed", ncol=4, dir="h") +
-  geom_hline(data = df_plhiv, aes(yintercept = estimate[4]/100), linetype = "dashed") +
+  geom_hline(data = df_plhiv, aes(yintercept = estimate[4]/10), linetype = "dashed") +
   si_style_xyline() +
   theme(strip.text.x = element_text(size = 12, face="bold"),
         axis.text.x = element_text(size=6),
@@ -103,7 +103,7 @@ df_viz <- df_facet %>%
   coord_cartesian(clip="off") +
   labs(x = NULL, y = NULL,
        title = glue("Are treatment numbers relatively consistent across demographics?"),
-       subtitle = glue("USAID/Guatemala TX_NEW 
+       subtitle = glue("USAID/Guatemala TX_CURR
                       by <span style = 'color: #8980cb'>Female</span>, 
                       <span style = 'color: #287c6f;'>Male</span>, and
                       <span style = 'color: #e07653;'>Key Populations</span>"),
