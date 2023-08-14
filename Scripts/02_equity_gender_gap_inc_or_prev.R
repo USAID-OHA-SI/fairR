@@ -31,7 +31,10 @@
   "PrEP_NEW",                      "Age/Sex")
   
   #Parameters
-  benchmark<-"Number PLHIV" #prevalence
+  benchmark<-"Number New HIV Infections" #incidence
+  benchmark_label<-"incidence"
+  #benchmark<-"Number HIV population" #prevalence
+  #benchmark_label<-"prevalence"
   cntry_sel<-"Guatemala"
   fisc_yr_sel<-2023
   UNAIDS_est_yr<-2021 #Until 2022 is available
@@ -52,22 +55,18 @@
   # Read msd
    df_msd <- read_psd(file_path) 
    
-  # Pull UNAIDS estimates
-  df_est <- pull_unaids(orginal_unaids = TRUE, data_type = "HIV Estimates", 
-                         pepfar_only = TRUE)
+   df_est <- pull_unaids(FALSE, "epicontrol", pepfar_only = TRUE)
    
    # get UNAIDS PLHIV estimates by sex 
    df_plhiv <- df_est %>% 
      filter(indicator==benchmark,
             country==cntry_sel,
-            year == UNAIDS_est_yr, age=="15+") %>% 
+            year == UNAIDS_est_yr, age=="all") %>% 
      group_by(country, indicator, sex) %>% 
      summarize(across(estimate, sum, na.rm=TRUE),.groups="drop") %>%
      pivot_wider(names_from = sex, values_from = estimate) %>%
-     rename(Total=All) %>%
-     mutate(Male=Total-Female) %>%
-     mutate(Female=round(Female/Total,2), Male=round(Male/Total,2)) %>%
-     select(-c("Total","indicator")) %>%
+     mutate(Female=round(female/all,2), Male=round(male/all,2)) %>%
+     select(-c("all","indicator", "female", "male")) %>%
      pivot_longer(cols = Female:Male,
                   names_to = "sex",
                   values_to = "freq_UNAIDS") 
@@ -115,9 +114,9 @@
       geom_vline(xintercept = unaids_male, linetype = "dashed", color = genoa, linewidth = 1)+ 
       si_style_xgrid(facet_space = 0.75)+ 
       scale_color_manual(values = c("Female" = moody_blue, "Male" = genoa),
-                                                             labels = function(x) str_to_upper(x)) + 
-      labs(title = glue("GREATER PROPORTION OF FEMALES LIVE WITH HIV THAN FOUND IN INDICATOR COHORTS"),
-           subtitle = glue("FY{str_sub(fisc_yr_sel, start = 3, end=4)} indicator results and UNAIDS PLHIV estimates for <span style = 'color: #8980cb;'>
+                                                  labels = function(x) str_to_upper(x)) + 
+      labs(title = glue("COMPARISON OF SEX BREAKDOWN IN UNAIDS {toupper(benchmark_label)} ESTIMATES vs USAID INDICATORS"),
+           subtitle = glue("FY{str_sub(fisc_yr_sel, start = 3, end=4)} indicator results and UNAIDS estimates for <span style = 'color: #8980cb;'>
                         Females</span> and <span style = 'color: #287c6f;'>Males</span>
                         in {df_tx$country[1]}"),
            caption = glue("Sources: {msd_source}, UNAIDS Estimates {UNAIDS_est_yr} | USAID/OHA/SIEI | Ref ID: {ref_id}"),
@@ -134,7 +133,9 @@
     
     
     
-  
+    
+# caption = glue::glue("Source: {source} | {author} \n created on: {Sys.Date()}"))
+      
     
     
      
